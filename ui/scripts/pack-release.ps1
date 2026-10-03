@@ -30,6 +30,7 @@ New-Item -ItemType Directory -Path $nativeStage -Force | Out-Null
 $nativeFiles = @('rnetch.exe')
 if ($Backend -in @('both', 'netfilter')) {
     $nativeFiles += @('nfapi.dll', 'nfdriver.sys')
+    $nativeFiles += @('NetFilter-NOTICE.txt', 'NetFilter-SOURCE.json')
 }
 if ($Backend -in @('both', 'windivert')) {
     $nativeFiles += @('WinDivert.dll', 'WinDivert64.sys')
@@ -48,10 +49,24 @@ if ($Backend -in @('both', 'windivert')) {
     if (Test-Path -LiteralPath $sourceMetadata -PathType Leaf) {
         Copy-Item -LiteralPath $sourceMetadata -Destination (Join-Path $nativeStage 'WinDivert-SOURCE.json')
     }
+    $sourceRecordPath = Join-Path $repoRoot 'deps/windivert/CORRESPONDING_SOURCE.json'
+    $sourceRecord = Get-Content -LiteralPath $sourceRecordPath -Raw | ConvertFrom-Json
+    $sourceCache = Join-Path $repoRoot 'build/windivert-download'
+    New-Item -ItemType Directory -Path $sourceCache -Force | Out-Null
+    $sourceArchive = Join-Path $sourceCache $sourceRecord.archive_name
+    if (-not (Test-Path -LiteralPath $sourceArchive -PathType Leaf)) {
+        Invoke-WebRequest -Uri $sourceRecord.download -OutFile $sourceArchive -UseBasicParsing
+    }
+    if ((Get-FileHash -LiteralPath $sourceArchive -Algorithm SHA256).Hash -ne $sourceRecord.sha256) {
+        throw 'WinDivert corresponding-source archive failed SHA-256 verification.'
+    }
+    Copy-Item -LiteralPath $sourceArchive -Destination $nativeStage
+    Copy-Item -LiteralPath $sourceRecordPath -Destination (Join-Path $nativeStage 'WinDivert-CORRESPONDING_SOURCE.json')
 }
 foreach ($name in $nativeFiles) {
     Copy-Item -LiteralPath (Join-Path $repoRoot "target\release\$name") -Destination $nativeStage
 }
+& (Join-Path $repoRoot 'scripts/collect-licenses.ps1') -OutputDirectory (Join-Path $nativeStage 'licenses')
 
 # Package the public example so local endpoints and credentials never enter a
 # release. Both-runtime releases preserve the example's backend preference.
@@ -113,7 +128,7 @@ try {
     Remove-Item -LiteralPath $manifestPath -Force
 
     $zipPath = Join-Path (Resolve-Path -LiteralPath 'release').Path "Rnetch-Control-$($package.version)-win-x64-$Backend.zip"
-    Compress-Archive -Path (Join-Path $appDir '*') -DestinationPath $zipPath -Force
+    & (Join-Path $repoRoot 'scripts/create-zip.ps1') -SourceDirectory $appDir -DestinationPath $zipPath
     Write-Host "Created $zipPath (included backends: $Backend)"
 } finally {
     Pop-Location

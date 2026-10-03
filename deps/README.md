@@ -22,9 +22,15 @@ if (-not (Test-Path -LiteralPath config.xml)) { Copy-Item config.example.xml con
 
 ## NetFilter
 
-本机保留的 NetFilter 文件缺少可核实的原始下载来源、SDK 发布版本和适用授权。[官方许可协议](https://www.netfiltersdk.com/license.html) 对 SDK 源码再分发设有限制；项目的 MIT 许可不覆盖 SDK 文件。记录在 [netfilter/SOURCE.json](netfilter/SOURCE.json) 中的哈希和 PE 版本字段仅描述这些现存文件，不代表官方校验或再分发授权。
+当前 NetFilter 运行时与 Netch 1.9.7 仓库中的文件完全一致，文件位置、固定提交、Git blob 标识和 SHA-256 见 [netfilter/SOURCE.json](netfilter/SOURCE.json)。可获取同一版本的未修改运行时：
 
-自行取得具有适用使用授权、配套且适用于 Windows x64 的 SDK 运行时文件，放入以下位置：
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/setup-netfilter.ps1
+```
+
+脚本校验下载文件的 SHA-256，遇到不同的现有文件会停止，不覆盖自备 SDK。[厂商许可协议](https://www.netfiltersdk.com/license.html) 规定完整可执行产品的分发及 SDK 源码的限制；项目 MIT 不覆盖 SDK。完整应用发布包保留 [版权与分发说明](netfilter/NOTICE.txt)。原始取得记录和 SDK 发布版本仍未知，PE 版本字段只用于识别这些文件。
+
+也可自行取得具有适用使用授权、配套且适用于 Windows x64 的 SDK 运行时文件，放入以下位置：
 
 ```text
 deps/nfapi.dll

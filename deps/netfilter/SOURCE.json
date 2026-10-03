@@ -3,13 +3,13 @@
   "component": "NetFilter SDK",
   "recorded_on": "2026-10-03",
   "origin": "unknown-existing-workspace-assets",
-  "source_url": null,
+  "source_url": "https://github.com/netchx/netch/tree/1.9.7",
   "sdk_release_version": null,
-  "redistribution_license": "unknown",
+  "redistribution_license": "NetFilter SDK vendor license statement: Distribution In Executable Form",
   "vendor_license_url": "https://www.netfiltersdk.com/license.html",
-  "source_distribution": "Original SDK headers and binaries are local, Git-ignored dependencies. The public vendor agreement restricts SDK source redistribution; the project's MIT license does not cover these assets. Applicability to the existing files remains unverified without acquisition records.",
-  "checksum_verification": "locally-observed-sha256; no-independent-upstream-checksum-available",
-  "provenance_note": "Original acquisition source, SDK release version and applicable redistribution terms were not found in the workspace. PE version metadata below is recorded verbatim and is not a verified SDK release version. Original SDK headers and binary assets are retained locally and ignored by Git.",
+  "source_distribution": "SDK binaries and headers are ignored in source Git. Complete binary application releases include the unmodified runtime, copyright notice and this provenance record; SDK headers and historical import libraries are not distributed.",
+  "checksum_verification": "runtime Git blob SHA-1 identifiers matched independently against the Netch 1.9.7 Git tree; SHA-256 identifies the same local files",
+  "provenance_note": "The original acquisition record and SDK release version remain unknown. The two unmodified runtime files were verified to be byte-identical to Netch 1.9.7 at commit 99480e99c3f5f4b0f6c4a32fdbbb4911be2a3687. Distribution in complete Rnetch application packages follows the public vendor executable-distribution statement; no SDK source or MIT relicensing is included.",
   "header_notice": {
     "copyright": "Copyright (C) Vitaly Sidorov",
     "rights": "All rights reserved.",
@@ -27,7 +27,11 @@
         "company_name": "",
         "product_name": "NetFilterSDK",
         "copyright": "Copyright (C)"
-      }
+      },
+      "upstream_commit": "99480e99c3f5f4b0f6c4a32fdbbb4911be2a3687",
+      "upstream_path": "Redirector/static/nfapi.dll",
+      "upstream_download": "https://raw.githubusercontent.com/netchx/netch/99480e99c3f5f4b0f6c4a32fdbbb4911be2a3687/Redirector/static/nfapi.dll",
+      "git_blob_sha1": "9fd5af54452ea31bfe709c6813e53064a811689e"
     },
     {
       "repository_path": "deps/nfdriver.sys",
@@ -40,7 +44,11 @@
         "company_name": "Windows (R) Win 7 DDK provider",
         "product_name": "Windows (R) Win 7 DDK driver",
         "copyright": "Copyright © NetFilterSDK.com"
-      }
+      },
+      "upstream_commit": "99480e99c3f5f4b0f6c4a32fdbbb4911be2a3687",
+      "upstream_path": "Storage/nfdriver.sys",
+      "upstream_download": "https://raw.githubusercontent.com/netchx/netch/99480e99c3f5f4b0f6c4a32fdbbb4911be2a3687/Storage/nfdriver.sys",
+      "git_blob_sha1": "7dd6a1bc41a584acb4cd3ba16cc2dd8364fa8f35"
     },
     {
       "repository_path": "legacy/cpp/lib/nfapi.lib",

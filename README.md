@@ -20,6 +20,8 @@ Rnetch 是面向 Windows x64 的按进程代理工具，使用 Rust 核心和 El
 
 ## 快速开始
 
+使用编译好的程序，可从 [Releases](https://github.com/BFvX/rnetch/releases) 下载 Windows x64 桌面便携包或 CLI 包。解压后设置代理参数与进程规则，再以管理员权限启动。双后端运行包已包含 NetFilter、WinDivert 驱动和配套动态库。
+
 以下示例使用 WinDivert。在仓库根目录执行：
 
 ~~~powershell
@@ -78,7 +80,7 @@ npm run dev
 | 后端 | 本地依赖位置 | 准备方式 |
 | --- | --- | --- |
 | WinDivert | `deps/windivert/WinDivert.dll`、`WinDivert64.sys` | 运行 `scripts/setup-windivert.ps1` |
-| NetFilter | `deps/nfapi.dll`、`deps/nfdriver.sys` | 自行取得适用授权的 SDK 运行时文件 |
+| NetFilter | `deps/nfapi.dll`、`deps/nfdriver.sys` | 运行 `scripts/setup-netfilter.ps1`，或准备自备 SDK 运行时 |
 
 驱动文件不包含在源码仓库中。构建时使用 `-Backend windivert`、`-Backend netfilter` 或 `-Backend both` 选择要复制的运行时文件。详情见 [依赖说明](deps/README.md)。
 

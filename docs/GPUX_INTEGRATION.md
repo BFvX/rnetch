@@ -1,19 +1,47 @@
-# GPUX 接入
+# GPUX UDP 隧道
 
-## 结构与配置
+Rnetch 支持使用 GPUX/1 隧道转发 UDP 流量。捕获后端可选择 NetFilter 或 WinDivert；TCP 流量继续通过 SOCKS5 转发。GPUX 服务端需要单独部署。
 
-`src/backend/` 负责 NetFilter / WinDivert 捕获、进程筛选、流量回注；`src/upstream.rs` 负责统一的 UDP 会话接口。`src/gpux/` 在 Rust 中实现兼容 `rnetch_cmd_gpux` 的 GPUX/1 协议，不链接历史 C++ 核心，也不新增驱动后端。SDK 的 endpoint/options 和 WinDivert 的包元数据留在各自适配层。
+## 配置与启动
 
-UI 分开保存 Capture driver 与 UDP transport。旧 XML 默认 SOCKS5，新增 `<udp_transport type="gpux"/>` 后 UDP 走 GPUX，TCP 仍走 `<socks5>`。仅 UDP 的 GPUX 规则可省略 SOCKS5；混合 TCP/UDP 规则须配置二者。示例为根目录 `config.gpux.example.xml`；正常 `config.xml` 不会被接入过程替换。
+复制 [GPUX 配置示例](../config.gpux.example.xml) 到本地 `config.xml`，设置服务端地址、端口和 token。客户端与服务端的加密模式必须一致，默认使用 ChaCha20-Poly1305。
 
-配置参数与 CLI/UI 校验一致：
+```xml
+<config>
+    <backend type="windivert" />
+    <udp_transport type="gpux" />
+    <socks5 host="127.0.0.1" port="10808" user="" pass="" />
+    <gpux host="127.0.0.1" port="40000" token="replace-with-your-token"
+          encryption="chacha20-poly1305" mtu_payload="1200" deadline_ms="8"
+          batch_window_us="0" pacing_interval_us="0" queue_limit="512"
+          fec_uplink="0" fec_group_max_us="2000" />
+    <rules>
+        <rule name="game.exe" tcp="1" udp="1" />
+    </rules>
+</config>
+```
+
+在桌面界面中选择捕获后端，将 UDP 传输方式设为 GPUX，并填写对应参数。仅代理 UDP 的规则可设置 `tcp="0"` 并省略 `<socks5>`；同时代理 TCP 和 UDP 时需要配置 SOCKS5。
+
+检查配置后，从管理员终端启动核心：
+
+```powershell
+.\target\release\rnetch.exe .\config.xml --check-config
+.\target\release\rnetch.exe .\config.xml
+```
+
+`--check-config` 只校验配置，不连接服务端或加载驱动。按 Enter 或 Ctrl+C 停止核心。构建和驱动准备步骤见 [构建与打包](PACKAGING_README.md)。
+
+## 参数
+
+以下参数均为 `<gpux>` 元素的属性。
 
 | 字段 | 默认值 | 范围/含义 |
 | --- | --- | --- |
 | host / port | 127.0.0.1 / 40000 | GPUX 服务端地址；端口 1..65535 |
 | token | 空，启用 GPUX 时必填 | 1..255 UTF-8 字节，无 NUL |
-| encryption | chacha20-poly1305 | 与服务器一致；plaintext 用于本地验证 |
-| mtu_payload | 1200 | 完整隧道 UDP 负载上限，128..65507 字节 |
+| encryption | chacha20-poly1305 | `chacha20-poly1305` 或 `plaintext`；明文模式仅适合可信测试环境 |
+| mtu_payload | 1200 | 完整隧道 UDP 负载上限，128..65507 字节；须至少容纳 `80 + token 的 UTF-8 字节数` |
 | deadline_ms | 8 | 从驱动截获时计算的本地发送预算，1..1000 ms |
 | batch_window_us | 0 | 微批处理窗口，0..1000000 µs |
 | pacing_interval_us | 0 | DATA 发送间隔，0..1000000 µs |
@@ -21,18 +49,40 @@ UI 分开保存 Capture driver 与 UDP transport。旧 XML 默认 SOCKS5，新�
 | fec_uplink | 0 | 0 关闭，1 启用上行最多 4+1 XOR FEC |
 | fec_group_max_us | 2000 | 部分 FEC 组刷新窗口，1..1000000 µs |
 
-下行 FEC 由服务器决定，客户端可解码。每次隧道启动生成随机 connection ID；加密格式、nonce 域、SHA-256 派生和包布局与原 C++ 服务端一致。所有 socket I/O 在一个专用 worker 中执行，停止时先释放捕获与转发 worker，再关闭隧道并 join。
+真实 token 应只保存在本地配置中。Rnetch 的 `config.xml` 已由 Git 忽略。
 
-## 无驱动互通验证
+## MTU、发送预算与 FEC
 
-原 C++ 服务端只作为外部验证对象，不是当前客户端的运行时依赖。测试仅绑定回环地址，不加载驱动，不读取个人配置或连接公网服务器：
+`mtu_payload` 包含 GPUX 协议和加密开销，可转发的应用数据报会小于该值。客户端不对数据报进行隧道分片；超过可用负载上限的数据报会被丢弃。
+
+`deadline_ms` 包含本地排队和等待 flow 建立的时间。过期数据报会被丢弃，DATA 包不进行 ARQ 重传。协议中的 TTL 用于本地发送与接收恢复等待，不表示跨主机同步时钟上的绝对到达期限。
+
+启用上行 FEC 后，每组最多使用 4 个 DATA 源包和 1 个 XOR 校验包，可恢复组内单个源包的丢失。下行是否发送 FEC 由服务端决定，客户端支持解码。FEC 会增加带宽和元数据开销，并进一步降低单个应用数据报的可用空间。
+
+批处理、pacing 和 FEC 的刷新窗口均会消耗发送预算。应根据数据报大小和链路情况调整参数；默认值不保证适合所有游戏或网络。
+
+## 会话与连接行为
+
+每次隧道启动都会生成随机 connection ID。一个隧道可承载多个 UDP 会话与目标，保留各自的流标识和响应来源地址。
+
+目标闲置 30 秒后，客户端会重新建立 flow。服务端的静默清理窗口应大于这一间隔；参考服务端的默认值为 45 秒。整个隧道发生致命错误时，核心停止并报告错误，需重新启动；当前没有整个隧道的自动重连。
+
+## 开发验证
+
+无需加载捕获驱动即可运行协议测试：
+
+```powershell
+cargo test --all-targets --locked
+```
+
+使用已有的 GPUX 服务端程序进行回环互通验证：
 
 ```powershell
 cargo build --example gpux_probe --locked
 python tools/verify_gpux_interop.py --server-exe C:\path\to\gpux_server.exe
 ```
 
-验证程序启动 IPv4/IPv6 UDP echo、一个隧道中继和原版服务端，再运行 Rust probe。每轮两个本地会话各联系两个目标，检查 48 个原样响应与来源、会话隔离和 FLOW_CLOSE/CLOSE 生命周期。矩阵包含明文、加密、批处理/pacing，以及明文/加密两种 FEC 模式；FEC 轮次主动在上下行每组丢弃一个 DATA 源包。
+验证工具启动本地 IPv4 / IPv6 UDP echo 和中继，检查明文、加密、批处理、pacing、FEC 恢复及会话关闭。服务端程序作为外部测试依赖提供。
 
 也可连接已启动的本地服务器和 echo 目标：
 
@@ -40,22 +90,4 @@ python tools/verify_gpux_interop.py --server-exe C:\path\to\gpux_server.exe
 cargo run --example gpux_probe -- config.gpux.example.xml 127.0.0.1:50000 "[::1]:50001"
 ```
 
-先将示例中的服务器地址/端口/token 修改为该测试服务的值。不要把真实 token 写入版本管理或公开日志。
-
-## 限制与真实验收
-
-GPUX 当前仅承载 UDP，DATA 不做 ARQ 重传，也不实现隧道分片；超过 MTU 的单个数据报会丢弃。FEC 额外保留校验包元数据所需空间，因此启用 FEC 时可承载的单个游戏数据报更小。TTL 包含本地排队和接收恢复等待，不是跨主机同步时钟的绝对到达期限。
-
-本地 deadline 可能丢弃建立新 flow 时等待控制确认的旧游戏帧，这是时效策略的一部分。客户端在目标闲置 30 秒后重开 flow，以适配原服务端默认 45 秒的静默清理；服务端应保留至少这一默认闲置窗口。共享隧道 worker 的致命错误会终止核心并在 UI 报错，需要重启核心；当前不自动重连整个隧道。真实配置需根据目标游戏和链路测试，不能由本地 echo 成功推断低延迟收益或稳定性。
-
-管理员真实验收时分别记录捕获驱动、进程规则、SOCKS5/GPUX 节点、TCP/UDP、IPv4/IPv6 和原驱动状态。检查游戏登录 TCP、UDP 对局、进程隔离、回环/私网旁路、重启和停止；不要在已经运行的游戏中途切换驱动作为唯一验证。参照 `docs/RUST_MIGRATION.md` 的手工矩阵。
-
-## 2026-10-03 接入验证
-
-- `cargo fmt --all -- --check`、`cargo test --all-targets --locked`（64 个库测试、1 个 CLI 测试、1 个原 SOCKS5 smoke mock）、`cargo clippy --all-targets --locked -- -D warnings` 通过。
-- `powershell -ExecutionPolicy Bypass -File scripts/build.ps1 -Backend both` 通过，Release 核心与两个既有驱动运行文件已准备好；未替换 SDK 来源文件。
-- UI 的 `npm test` 25 项通过，`npm run build` 通过。
-- 正常 33 条规则配置与 GPUX 示例分别以 NetFilter/WinDivert 执行 `--check-config`，四次通过；配置检查不解析节点、不加载驱动。
-- Rust 客户端与 `rnetch_cmd_gpux/build/msvc-ninja-release/gpux_server.exe` 的五轮回环互通全部通过，每轮 48 个响应。明文与加密 FEC 轮次均在上下行主动丢弃 DATA 源包并完整恢复。
-- 原版未修改的 C++ 协议代码生成的固定字节向量验证 Rust 帧格式、密钥/nonce、IPv4/IPv6 与完整/部分 XOR FEC。NetFilter mock SDK 回归验证同一端点多目标的 SDK options 和原始地址族。
-- 本次未加载捕获驱动、未连接公网 GPUX 节点、未执行真实游戏或延迟收益测试。根目录原 `config.xml` 保持原运行配置。原先打出的 0.2.2 安装包不包含这次源码改动；试用当前构建请在 `ui` 目录运行 `npm run dev`。
+运行前使配置中的地址、端口、token 和加密模式与测试服务匹配。驱动捕获、进程规则、TCP / UDP 和 IPv4 / IPv6 的系统验收见 [驱动验收说明](RUST_MIGRATION.md)。

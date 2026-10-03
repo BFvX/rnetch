@@ -1,0 +1,125 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Windows x64 packages
+    runs-on: windows-latest
+    timeout-minutes: 40
+    env:
+      RUSTUP_TOOLCHAIN: stable-x86_64-pc-windows-msvc
+      CARGO_TERM_COLOR: always
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: Install Rust toolchain
+        run: rustup toolchain install stable-x86_64-pc-windows-msvc --profile minimal --component rustfmt --component clippy
+      - name: Check Rust
+        run: |
+          cargo fmt --all -- --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --all-targets --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo clippy --all-targets --locked -- -D warnings
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Install and test UI
+        working-directory: ui
+        run: |
+          npm ci
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Prepare pinned driver runtimes
+        run: |
+          ./scripts/setup-netfilter.ps1
+          ./scripts/setup-windivert.ps1 -ArchiveSha256 63cb41763bb4b20f600b6de04e991a9c2be73279e317d4d82f237b150c5f3f15
+      - name: Build both-backend packages
+        run: |
+          ./ui/scripts/pack-release.ps1 -Backend both
+          ./scripts/prepare-release.ps1 -ReleaseTag $env:GITHUB_REF_NAME
+      - name: Upload and verify Release
+        id: publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $notes = "docs/releases/$tag.md"
+          if (-not (Test-Path -LiteralPath $notes)) { throw "Release notes are missing: $notes" }
+          $existing = gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$tag" 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            $release = $existing | ConvertFrom-Json
+            if (-not $release.draft -or $release.target_commitish -ne $env:GITHUB_SHA) {
+              throw 'Refusing to change an existing published release or an unrelated draft.'
+            }
+          } else {
+            gh release create $tag --repo $env:GITHUB_REPOSITORY --verify-tag --target $env:GITHUB_SHA --title "Rnetch $($tag.TrimStart('v'))" --notes-file $notes --draft --prerelease
+            if ($LASTEXITCODE -ne 0) { throw 'Release draft creation failed.' }
+          }
+          $files = @(Get-ChildItem build/release-assets -File)
+          gh release upload $tag @($files.FullName) --repo $env:GITHUB_REPOSITORY --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'Release asset upload failed.' }
+          $release = gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$tag" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'Uploaded Release could not be read.' }
+          foreach ($file in $files) {
+            $asset = @($release.assets | Where-Object { $_.name -eq $file.Name })
+            $digest = 'sha256:' + (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($asset.Count -ne 1 -or $asset[0].size -ne $file.Length -or $asset[0].digest -ne $digest) {
+              throw "Uploaded asset verification failed: $($file.Name)"
+            }
+          }
+          gh release edit $tag --repo $env:GITHUB_REPOSITORY --draft=false --prerelease
+          if ($LASTEXITCODE -ne 0) { throw 'Release publication failed.' }
+          $release = gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$tag" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $release.draft) { throw 'Published Release verification failed.' }
+          $release | ConvertTo-Json -Depth 12 | Set-Content build/release-result.json -Encoding utf8
+          "Release: $($release.html_url)" | Add-Content $env:GITHUB_STEP_SUMMARY
+      - name: Record build result
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JOB_STATUS: ${{ job.status }}
+          PUBLISH_OUTCOME: ${{ steps.publish.outcome }}
+        run: |
+          # Git notes preserve the verified upload result for maintainers using
+          # SSH, without adding build artifacts or generated branches to Git.
+          New-Item -ItemType Directory -Path build -Force | Out-Null
+          $record = @{
+            tag = $env:GITHUB_REF_NAME
+            commit = $env:GITHUB_SHA
+            status = $env:JOB_STATUS
+            publish_outcome = $env:PUBLISH_OUTCOME
+            workflow = "https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+          }
+          if (Test-Path build/release-result.json) {
+            $record.release = Get-Content build/release-result.json -Raw | ConvertFrom-Json
+          }
+          $record | ConvertTo-Json -Depth 15 | Set-Content build/release-status.json -Encoding utf8
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          gh auth setup-git --hostname github.com
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub Git authentication setup failed.' }
+          git fetch origin refs/notes/rnetch-releases:refs/notes/rnetch-releases 2>$null
+          git notes --ref=rnetch-releases add -f -F build/release-status.json $env:GITHUB_SHA
+          if ($LASTEXITCODE -ne 0) { throw 'Release status note creation failed.' }
+          git push origin refs/notes/rnetch-releases
+          if ($LASTEXITCODE -ne 0) { throw 'Release status note push failed.' }

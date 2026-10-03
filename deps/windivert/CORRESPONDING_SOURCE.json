@@ -1,0 +1,15 @@
+{
+  "component": "WinDivert",
+  "version": "2.2.2",
+  "license_option": "LGPL-3.0-only",
+  "repository": "https://github.com/basil00/WinDivert",
+  "tag": "v2.2.2",
+  "commit": "1789526ecfb9ff5397c94f9f54c1a3dc2fb60440",
+  "download": "https://codeload.github.com/basil00/WinDivert/zip/1789526ecfb9ff5397c94f9f54c1a3dc2fb60440",
+  "archive_name": "WinDivert-2.2.2-source.zip",
+  "sha256": "25054821d47ec0ef2227c79f3d6688a3a11d6a128d8f103710d1022e92ea1054",
+  "checksum_verification": "locally-observed-sha256-of-HTTPS-archive-pinned-to-release-commit",
+  "modifications": "none",
+  "build_instructions": ["README", "mingw-build.sh", "release-build.sh", "sys/Makefile"],
+  "replacement": "Rnetch dynamically loads WinDivert.dll alongside WinDivert64.sys. Users may replace this pair with an ABI-compatible build. The application does not enforce a DLL checksum or signature. Windows requires an acceptable signature on a loaded kernel driver."
+}

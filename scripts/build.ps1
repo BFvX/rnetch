@@ -48,6 +48,10 @@ try {
     }
     Copy-Item -LiteralPath (Join-Path $repoRoot 'LICENSE') -Destination (Join-Path $releaseDir 'rnetch-LICENSE') -Force
     Copy-Item -LiteralPath (Join-Path $repoRoot 'THIRD_PARTY_NOTICES.md') -Destination $releaseDir -Force
+    if ($runtimeFiles -contains 'deps\nfapi.dll') {
+        Copy-Item -LiteralPath (Join-Path $repoRoot 'deps/netfilter/NOTICE.txt') -Destination (Join-Path $releaseDir 'NetFilter-NOTICE.txt') -Force
+        Copy-Item -LiteralPath (Join-Path $repoRoot 'deps/netfilter/SOURCE.json') -Destination (Join-Path $releaseDir 'NetFilter-SOURCE.json') -Force
+    }
     if ($runtimeFiles -contains 'deps\windivert\WinDivert.dll') {
         foreach ($noticeName in @('LICENSE', 'README', 'VERSION', 'CHANGELOG', 'SOURCE.json')) {
             $noticePath = Join-Path $repoRoot "deps\windivert\$noticeName"

@@ -1,0 +1,15 @@
+NetFilter SDK runtime
+Copyright (C) Vitaly Sidorov / NetFilterSDK.com. All rights reserved.
+
+nfapi.dll and nfdriver.sys are unmodified third-party runtime files. They are
+distributed as part of the Rnetch application, under the vendor's terms for
+distribution in executable form, and are not covered by Rnetch's MIT license.
+Vendor license statement: https://www.netfiltersdk.com/license.html
+
+These files match the NetFilter runtime committed in Netch 1.9.7:
+https://github.com/netchx/netch/tree/99480e99c3f5f4b0f6c4a32fdbbb4911be2a3687
+nfapi.dll: Redirector/static/nfapi.dll
+nfdriver.sys: Storage/nfdriver.sys
+
+File checksums and upstream identifiers are recorded in NetFilter-SOURCE.json.
+This package does not include NetFilter SDK source, headers or import libraries.
