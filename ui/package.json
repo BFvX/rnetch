@@ -38,6 +38,7 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
+      "assets/rnetch-icon.png",
       "package.json"
     ],
     "extraResources": [
@@ -59,6 +60,7 @@
       }
     ],
     "win": {
+      "icon": "assets/rnetch.ico",
       "target": [
         {
           "target": "portable",

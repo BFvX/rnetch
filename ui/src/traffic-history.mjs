@@ -6,10 +6,10 @@ export const TRAFFIC_WINDOWS = [
 ];
 
 export const SPEED_BANDS = [
-  { limit: 256 * 1024, color: '#2583c5', label: '<256 KB/s' },
-  { limit: 1024 * 1024, color: '#16866c', label: '256 KB–1 MB/s' },
-  { limit: 5 * 1024 * 1024, color: '#b87815', label: '1–5 MB/s' },
-  { limit: Infinity, color: '#9451bd', label: '≥5 MB/s' }
+  { limit: 256 * 1024, color: '#6990f5', label: '<256 KB/s' },
+  { limit: 1024 * 1024, color: '#3563e9', label: '256 KB–1 MB/s' },
+  { limit: 5 * 1024 * 1024, color: '#9364d9', label: '1–5 MB/s' },
+  { limit: Infinity, color: '#d28b42', label: '≥5 MB/s' }
 ];
 
 export const PLOT = { width: 320, top: 6, bottom: 62, height: 68 };

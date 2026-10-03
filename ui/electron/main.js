@@ -63,7 +63,8 @@ function createWindow() {
     height: 780,
     minWidth: 980,
     minHeight: 680,
-    backgroundColor: '#f4f6f8',
+    backgroundColor: '#f5f6fa',
+    icon: path.join(__dirname, '..', 'assets', 'rnetch-icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

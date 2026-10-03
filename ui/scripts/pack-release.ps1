@@ -127,6 +127,16 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Manifest update failed with exit code $LASTEXITCODE." }
     Remove-Item -LiteralPath $manifestPath -Force
 
+    # Use electron-builder's installed Windows-only resource editor. Its legacy
+    # cross-platform winCodeSign archive contains macOS symlinks that cannot be
+    # extracted on Windows without additional privileges.
+    $iconEditor = Join-Path $uiDir 'node_modules/electron-winstaller/vendor/rcedit.exe'
+    if (-not (Test-Path -LiteralPath $iconEditor -PathType Leaf)) {
+        throw 'rcedit.exe was not found in electron-winstaller. Install the locked UI dependencies with npm ci.'
+    }
+    & $iconEditor $exePath --set-icon (Join-Path $uiDir 'assets/rnetch.ico')
+    if ($LASTEXITCODE -ne 0) { throw "Executable icon update failed with exit code $LASTEXITCODE." }
+
     $zipPath = Join-Path (Resolve-Path -LiteralPath 'release').Path "Rnetch-Control-$($package.version)-win-x64-$Backend.zip"
     & (Join-Path $repoRoot 'scripts/create-zip.ps1') -SourceDirectory $appDir -DestinationPath $zipPath
     Write-Host "Created $zipPath (included backends: $Backend)"
