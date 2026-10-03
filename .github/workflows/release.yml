@@ -63,11 +63,16 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $tag = $env:GITHUB_REF_NAME
+          trap {
+            $_.ToString() | Set-Content build/release-error.txt -Encoding utf8
+            break
+          }
           $notes = "docs/releases/$tag.md"
           if (-not (Test-Path -LiteralPath $notes)) { throw "Release notes are missing: $notes" }
-          $existing = gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$tag" 2>$null
+          $existing = gh release view $tag --repo $env:GITHUB_REPOSITORY --json databaseId --jq '.databaseId' 2>$null
           if ($LASTEXITCODE -eq 0) {
-            $release = $existing | ConvertFrom-Json
+            $release = gh api "repos/$env:GITHUB_REPOSITORY/releases/$existing" | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0) { throw 'Existing Release metadata could not be read.' }
             if (-not $release.draft -or $release.target_commitish -ne $env:GITHUB_SHA) {
               throw 'Refusing to change an existing published release or an unrelated draft.'
             }
@@ -78,7 +83,9 @@ jobs:
           $files = @(Get-ChildItem build/release-assets -File)
           gh release upload $tag @($files.FullName) --repo $env:GITHUB_REPOSITORY --clobber
           if ($LASTEXITCODE -ne 0) { throw 'Release asset upload failed.' }
-          $release = gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$tag" | ConvertFrom-Json
+          $releaseId = gh release view $tag --repo $env:GITHUB_REPOSITORY --json databaseId --jq '.databaseId'
+          if ($LASTEXITCODE -ne 0) { throw 'Draft Release ID could not be read.' }
+          $release = gh api "repos/$env:GITHUB_REPOSITORY/releases/$releaseId" | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0) { throw 'Uploaded Release could not be read.' }
           foreach ($file in $files) {
             $asset = @($release.assets | Where-Object { $_.name -eq $file.Name })
@@ -89,7 +96,7 @@ jobs:
           }
           gh release edit $tag --repo $env:GITHUB_REPOSITORY --draft=false --prerelease
           if ($LASTEXITCODE -ne 0) { throw 'Release publication failed.' }
-          $release = gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$tag" | ConvertFrom-Json
+          $release = gh api "repos/$env:GITHUB_REPOSITORY/releases/$releaseId" | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0 -or $release.draft) { throw 'Published Release verification failed.' }
           $release | ConvertTo-Json -Depth 12 | Set-Content build/release-result.json -Encoding utf8
           "Release: $($release.html_url)" | Add-Content $env:GITHUB_STEP_SUMMARY
@@ -112,6 +119,9 @@ jobs:
           }
           if (Test-Path build/release-result.json) {
             $record.release = Get-Content build/release-result.json -Raw | ConvertFrom-Json
+          }
+          if (Test-Path build/release-error.txt) {
+            $record.error = Get-Content build/release-error.txt -Raw
           }
           $record | ConvertTo-Json -Depth 15 | Set-Content build/release-status.json -Encoding utf8
           git config user.name 'github-actions[bot]'

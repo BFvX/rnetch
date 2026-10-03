@@ -1,6 +1,6 @@
 [package]
 name = "rnetch"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2021"
 rust-version = "1.85"
 description = "Process-selective SOCKS5 and GPUX forwarding with NetFilter and WinDivert backends"

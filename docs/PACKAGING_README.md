@@ -84,6 +84,6 @@ The workflow also records its result and verified Release metadata in Git notes.
 
 ```powershell
 git fetch origin refs/notes/rnetch-releases:refs/notes/rnetch-releases
-git notes --ref=rnetch-releases show v0.2.2
+git notes --ref=rnetch-releases show 'v0.2.2^{}'
 ```
 
