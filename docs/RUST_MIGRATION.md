@@ -38,6 +38,8 @@ npm run build
 
 Tests cover legacy XML and backend validation, process matching and private bypass, fragmented SOCKS5 replies and authentication downgrade rejection, local mock TCP/UDP proxies, malformed UDP framing, TCP half-close, NetFilter packed ABI, WinDivert address ABI, IP/UDP packet parsing, TCP address translation, flow isolation/expiry and Windows process-owner lookup. These tests do not install or start either driver.
 
+NetFilter callbacks with `processId = 0` do not identify a selectable executable. They bypass directly without a process-name query, with separate TCP/UDP PID 0 counters in the periodic diagnostics. The first such callback per protocol logs its endpoint ID and local address at info level. `process lookup failures` counts only failed queries for nonzero PIDs; its first warning includes the protocol, endpoint, local address, and Windows error. This preserves the warning for real lookup failures even when PID 0 notifications arrive during startup. A callback PID is distinct from `NF_RULE_EX.processId = 0`, which is a rule wildcard; configured executable names remain authoritative. If startup notifications need investigation, retain these endpoint details and the subsequent diagnostics rather than assuming they identify System Idle Process traffic.
+
 WinDivert runtime provenance is recorded in `deps/windivert/SOURCE.json`; retain its accompanying license and notices when distributing. Setup verifies Authenticode, and validates an independent expected hash if supplied or published. The recorded observed hash alone is not claimed as independent verification.
 
 ## Driver smoke tests (administrator terminal)

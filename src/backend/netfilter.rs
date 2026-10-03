@@ -106,10 +106,12 @@ struct Diagnostics {
     udp_selected: AtomicU64,
     udp_sends: AtomicU64,
     process_lookup_failures: AtomicU64,
+    tcp_pid_zero: AtomicU64,
+    udp_pid_zero: AtomicU64,
 }
 
 impl Diagnostics {
-    fn snapshot(&self) -> [u64; 7] {
+    fn snapshot(&self) -> [u64; 9] {
         [
             &self.tcp_requests,
             &self.tcp_selected,
@@ -118,6 +120,8 @@ impl Diagnostics {
             &self.udp_selected,
             &self.udp_sends,
             &self.process_lookup_failures,
+            &self.tcp_pid_zero,
+            &self.udp_pid_zero,
         ]
         .map(|count| count.load(Ordering::Relaxed))
     }
@@ -146,13 +150,35 @@ impl Runtime {
         is_private_or_local(target.ip()) || self.proxy_addresses.contains(&proxy_address(target))
     }
 
-    fn matches(&self, process_id: u32, tcp: bool) -> bool {
+    fn matches(&self, process_id: u32, tcp: bool, id: u64, local_address: &[u8; 28]) -> bool {
+        let protocol = if tcp { "TCP" } else { "UDP" };
+        if process_id == 0 {
+            // This is the SDK callback's PID, not the process-name rule's wildcard.
+            // No executable can be identified from it. Keep these notifications
+            // separate so they cannot consume the first real lookup-failure warning.
+            let counter = if tcp {
+                &self.diagnostics.tcp_pid_zero
+            } else {
+                &self.diagnostics.udp_pid_zero
+            };
+            if counter.fetch_add(1, Ordering::Relaxed) == 0 {
+                status(
+                    "info",
+                    &format!(
+                        "NetFilter SDK reported PID 0 for {protocol} endpoint {id} (local={:?}); its traffic is bypassed",
+                        decode_address(local_address)
+                    ),
+                );
+            }
+            return false;
+        }
         if process_id == std::process::id() || crate::backend::process::is_local_proxy(process_id) {
             return false;
         }
         let mut name = [0u16; 32768];
         if unsafe { (self.api.process_name)(process_id, name.as_mut_ptr(), name.len() as u32) } == 0
         {
+            let error = std::io::Error::last_os_error();
             let failures = self
                 .diagnostics
                 .process_lookup_failures
@@ -161,7 +187,8 @@ impl Runtime {
                 status(
                     "warning",
                     &format!(
-                        "NetFilter cannot resolve process {process_id}; its traffic is bypassed"
+                        "NetFilter cannot resolve process {process_id} for {protocol} endpoint {id} (local={:?}): {error}; its traffic is bypassed",
+                        decode_address(local_address)
                     ),
                 );
             }
@@ -386,8 +413,8 @@ fn report_diagnostics(runtime: Arc<Runtime>) {
         let snapshot = runtime.diagnostics.snapshot();
         if previous != Some(snapshot) {
             status("info", &format!(
-                "NetFilter diagnostics: TCP requests={} selected={} redirected={} accepted={}, UDP selected={} sends={}, process lookup failures={}",
-                snapshot[0], snapshot[1], snapshot[2], snapshot[3], snapshot[4], snapshot[5], snapshot[6]
+                "NetFilter diagnostics: TCP requests={} selected={} redirected={} accepted={}, UDP selected={} sends={}, process lookup failures={}, PID 0 TCP endpoints={} UDP endpoints={}",
+                snapshot[0], snapshot[1], snapshot[2], snapshot[3], snapshot[4], snapshot[5], snapshot[6], snapshot[7], snapshot[8]
             ));
             previous = Some(snapshot);
         }
@@ -427,7 +454,7 @@ unsafe extern "C" fn tcp_connect(id: u64, info: *mut TcpInfo) {
             || target.is_none()
             || connection.direction != 2
             || target.is_some_and(|target| runtime.bypass(target))
-            || !runtime.matches(connection.process_id, true)
+            || !runtime.matches(connection.process_id, true, id, &connection.local_address)
         {
             connection.filtering_flag = 0;
             unsafe {
@@ -590,7 +617,7 @@ unsafe extern "C" fn udp_created(id: u64, info: *mut UdpInfo) {
     }
     callback(|runtime| {
         let info = unsafe { ptr::read_unaligned(info) };
-        if runtime.stopped() || !runtime.matches(info.process_id, false) {
+        if runtime.stopped() || !runtime.matches(info.process_id, false, id, &info.local_address) {
             unsafe {
                 (runtime.api.udp_disable)(id);
             }

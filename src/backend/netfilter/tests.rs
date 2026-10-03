@@ -12,6 +12,8 @@ enum Event {
     Receive(u64, Vec<u8>),
     SendEof(u64),
     Abort(u64),
+    DisableTcp(u64),
+    DisableUdp(u64),
     Datagram(u64, SocketAddr, Vec<u8>, Vec<u8>),
 }
 
@@ -76,6 +78,14 @@ impl Harness {
     }
 
     fn with_config(port: u16, configure: impl FnOnce(&mut AppConfig)) -> Self {
+        Self::with_config_and_api(port, configure, |_| {})
+    }
+
+    fn with_config_and_api(
+        port: u16,
+        configure: impl FnOnce(&mut AppConfig),
+        configure_api: impl FnOnce(&mut Api),
+    ) -> Self {
         let guard = lock(&START_LOCK);
         lock(&EVENTS).clear();
         let mut api = Api::test_stub();
@@ -84,6 +94,7 @@ impl Harness {
         api.tcp_post_send = send_eof;
         api.tcp_close = abort;
         api.udp_post_receive = datagram;
+        configure_api(&mut api);
         let mut config = AppConfig {
             backend: BackendKind::Netfilter,
             udp_transport: Default::default(),
@@ -211,11 +222,78 @@ fn tcp_info() -> TcpInfo {
 }
 
 #[test]
+fn pid_zero_callbacks_bypass_without_querying_or_hiding_real_lookup_failures() {
+    static QUERIED_PIDS: Mutex<Vec<u32>> = Mutex::new(Vec::new());
+    unsafe extern "C" fn process_name(pid: u32, out: *mut u16, size: u32) -> i32 {
+        lock(&QUERIED_PIDS).push(pid);
+        if pid == u32::MAX - 1 {
+            unsafe { windows_sys::Win32::Foundation::SetLastError(5) };
+            return 0;
+        }
+        unsafe { (Api::test_stub().process_name)(pid, out, size) }
+    }
+    unsafe extern "C" fn disable_tcp(id: u64) -> i32 {
+        lock(&EVENTS).push(Event::DisableTcp(id));
+        0
+    }
+    unsafe extern "C" fn disable_udp(id: u64) -> i32 {
+        lock(&EVENTS).push(Event::DisableUdp(id));
+        0
+    }
+    let harness = Harness::with_config_and_api(
+        40000,
+        |_| {},
+        |api| {
+            api.process_name = process_name;
+            api.tcp_disable = disable_tcp;
+            api.udp_disable = disable_udp;
+        },
+    );
+    lock(&QUERIED_PIDS).clear();
+    let mut tcp = tcp_info();
+    tcp.process_id = 0;
+    let mut udp = UdpInfo {
+        process_id: 0,
+        ip_family: 2,
+        local_address: encode_address("0.0.0.0:40001".parse().unwrap()),
+    };
+    unsafe {
+        tcp_connect(71, &mut tcp);
+        udp_created(72, &mut udp);
+    }
+    let flags = tcp.filtering_flag;
+    assert_eq!(flags, 0, "Unattributed TCP must remain direct");
+    assert_eq!(
+        *lock(&EVENTS),
+        vec![Event::DisableTcp(71), Event::DisableUdp(72)]
+    );
+    assert!(lock(&QUERIED_PIDS).is_empty());
+    assert!(lock(&harness.runtime.tcp).is_empty());
+    assert!(lock(&harness.runtime.udp).is_empty());
+    assert!(lock(&harness.runtime.workers).is_empty());
+    assert_eq!(harness.runtime.diagnostics.snapshot()[6..], [0, 1, 1]);
+
+    let local = udp.local_address;
+    assert!(!harness.runtime.matches(u32::MAX - 1, false, 73, &local));
+    assert_eq!(harness.runtime.diagnostics.snapshot()[6..], [1, 1, 1]);
+    assert!(harness.runtime.matches(u32::MAX, true, 74, &local));
+    assert!(harness.runtime.matches(u32::MAX, false, 75, &local));
+    assert_eq!(*lock(&QUERIED_PIDS), vec![u32::MAX - 1, u32::MAX, u32::MAX]);
+    assert!(!harness.runtime.stopped());
+    assert!(harness.runtime.metrics.failure().is_none());
+}
+
+#[test]
 fn tcp_redirect_uses_real_stream_without_sdk_connected_or_injection() {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let harness = Harness::new(listener.local_addr().unwrap().port());
     let reply: Vec<u8> = (0..100_000).map(|i| (i % 251) as u8).collect();
     let expected = reply.clone();
+    // A preceding PID 0 callback must not interfere with this real proxy relay.
+    let mut unattributed = tcp_info();
+    unattributed.process_id = 0;
+    unsafe { tcp_connect(6, &mut unattributed) };
+    assert_eq!(harness.runtime.diagnostics.snapshot()[6..], [0, 1, 0]);
     let server = thread::spawn(move || {
         let mut socket = accept(&listener, 1);
         socket.write_all(&[5, 0, 0, 1, 0, 0, 0, 0, 0, 0]).unwrap();
@@ -353,6 +431,12 @@ fn udp_recovers_on_same_endpoint_after_proxy_control_disconnect() {
         ip_family: 23,
         local_address: encode_address("[::]:12345".parse().unwrap()),
     };
+    // Startup PID 0 notifications must not prevent later UDP forwarding/recovery.
+    let mut unattributed = info;
+    unattributed.process_id = 0;
+    unsafe { udp_created(8, &mut unattributed) };
+    assert!(lock(&harness.runtime.udp).is_empty());
+    assert_eq!(harness.runtime.diagnostics.snapshot()[6..], [0, 0, 1]);
     let remote: SocketAddr = "[::ffff:203.0.113.1]:3659".parse().unwrap();
     let address = encode_address(remote);
     let mut options = options(77);
