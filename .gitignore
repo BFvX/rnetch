@@ -1,0 +1,57 @@
+# Build products and dependency caches
+/build/
+/build_ps/
+/target/
+/.cache/
+/ui/node_modules/
+/ui/dist/
+/ui/release/
+/node_modules/
+compile_commands.json
+
+# Private runtime configuration (commit the examples instead)
+/config.xml
+/config.local*.xml
+.env
+.env.*
+!.env.example
+
+# Machine-specific tooling, analysis output and private screenshots
+/.local/
+/.agents/
+/.vscode/
+/.clangd
+/ps_options.txt
+/ps_ws/
+/QQ*.png
+
+# SDK binaries and restricted NetFilter headers are provisioned locally
+# Keep license notices and provenance records in the source repository
+/deps/*.dll
+/deps/*.sys
+/deps/*.lib
+/deps/netfilter/include/
+/deps/windivert/*.dll
+/deps/windivert/*.sys
+/legacy/cpp/lib/*.lib
+/legacy/cpp/**/build/
+
+# Visual Studio cache and temporary files
+.vs/
+*.suo
+*.user
+
+# Log files
+*.log
+rnetch_log.txt
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Operating System generated files
+.DS_Store
+Thumbs.db
+Desktop.ini

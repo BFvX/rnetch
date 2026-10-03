@@ -1,0 +1,26 @@
+[package]
+name = "rnetch"
+version = "0.2.2"
+edition = "2021"
+rust-version = "1.85"
+description = "Process-selective SOCKS5 and GPUX forwarding with NetFilter and WinDivert backends"
+license = "MIT"
+publish = false
+
+[dependencies]
+anyhow = "1.0"
+chacha20poly1305 = "0.10"
+ctrlc = "3.4"
+getrandom = "0.2"
+libloading = "0.8"
+roxmltree = "0.20"
+serde_json = "1.0"
+sha2 = "0.10"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_NetworkManagement_IpHelper", "Win32_Networking_WinSock", "Win32_System_Threading", "Win32_System_Services", "Win32_System_LibraryLoader"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "debuginfo"

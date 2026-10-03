@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "component": "NetFilter SDK",
+  "recorded_on": "2026-10-03",
+  "origin": "unknown-existing-workspace-assets",
+  "source_url": null,
+  "sdk_release_version": null,
+  "redistribution_license": "unknown",
+  "vendor_license_url": "https://www.netfiltersdk.com/license.html",
+  "source_distribution": "Original SDK headers and binaries are local, Git-ignored dependencies. The public vendor agreement restricts SDK source redistribution; the project's MIT license does not cover these assets. Applicability to the existing files remains unverified without acquisition records.",
+  "checksum_verification": "locally-observed-sha256; no-independent-upstream-checksum-available",
+  "provenance_note": "Original acquisition source, SDK release version and applicable redistribution terms were not found in the workspace. PE version metadata below is recorded verbatim and is not a verified SDK release version. Original SDK headers and binary assets are retained locally and ignored by Git.",
+  "header_notice": {
+    "copyright": "Copyright (C) Vitaly Sidorov",
+    "rights": "All rights reserved.",
+    "full_notice_location": "deps/netfilter/include/{nfapi,nfdriver,nfevents}.h"
+  },
+  "files": [
+    {
+      "repository_path": "deps/nfapi.dll",
+      "role": "runtime-library",
+      "bytes": 389632,
+      "sha256": "f0519b24f076f52f12353d955ef89863963b5988130233673f2f4a4445e842cc",
+      "pe_version_metadata": {
+        "file_version": "1, 5, 1, 7",
+        "product_version": "1, 6, 0, 9",
+        "company_name": "",
+        "product_name": "NetFilterSDK",
+        "copyright": "Copyright (C)"
+      }
+    },
+    {
+      "repository_path": "deps/nfdriver.sys",
+      "role": "runtime-driver",
+      "bytes": 90672,
+      "sha256": "4af6f672119f4f13e33b8914630eedea97d299b5c92c2105a4015dd0ca6e933e",
+      "pe_version_metadata": {
+        "file_version": "1.6.3.0",
+        "product_version": "6.2.9200.20557",
+        "company_name": "Windows (R) Win 7 DDK provider",
+        "product_name": "Windows (R) Win 7 DDK driver",
+        "copyright": "Copyright © NetFilterSDK.com"
+      }
+    },
+    {
+      "repository_path": "legacy/cpp/lib/nfapi.lib",
+      "role": "historical-cpp-import-library",
+      "bytes": 11044,
+      "sha256": "c9e7bf5cce49cd929f511115a91f10a8746e9f03de35f7f5fd3227c35de33dca"
+    },
+    {
+      "repository_path": "deps/netfilter/include/nfapi.h",
+      "role": "ffi-abi-reference-header",
+      "bytes": 11750,
+      "sha256": "6f2651fe9f9d1adc64794e9e0fc9d289597649add5695d42d3446ef61d0c8eee"
+    },
+    {
+      "repository_path": "deps/netfilter/include/nfdriver.h",
+      "role": "ffi-abi-reference-header",
+      "bytes": 14457,
+      "sha256": "a3761cfed1b2ff43f1b1ffc17d443e384299118767624e3148aea52911eb5104"
+    },
+    {
+      "repository_path": "deps/netfilter/include/nfevents.h",
+      "role": "ffi-abi-reference-header",
+      "bytes": 8642,
+      "sha256": "e3fc95af1d9fb46c040f8d52a721c26182dda5a2ce4d6e78c9f46e713e5f3995"
+    }
+  ]
+}

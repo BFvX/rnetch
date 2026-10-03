@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    name: Rust (Windows x64)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      RUSTUP_TOOLCHAIN: stable-x86_64-pc-windows-msvc
+      CARGO_TERM_COLOR: always
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Install Rust toolchain
+        run: rustup toolchain install stable-x86_64-pc-windows-msvc --profile minimal --component rustfmt --component clippy
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      - name: Run tests
+        run: cargo test --all-targets --locked
+      - name: Run Clippy
+        run: cargo clippy --all-targets --locked -- -D warnings
+      - name: Build core without runtime drivers
+        run: cargo build --release --locked
+      - name: Validate example configurations without loading drivers
+        run: |
+          .\target\release\rnetch.exe .\config.example.xml --check-config
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .\target\release\rnetch.exe .\config.gpux.example.xml --check-config
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+  ui:
+    name: Electron / React UI
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: ui
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Run tests
+        run: npm test
+      - name: Build UI
+        run: npm run build

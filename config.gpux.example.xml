@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config>
+    <backend type="netfilter" />
+    <udp_transport type="gpux" />
+    <!-- TCP still uses SOCKS5. For UDP-only rules this element may be omitted. -->
+    <socks5 host="127.0.0.1" port="10808" user="" pass="" />
+    <gpux host="127.0.0.1" port="40000" token="replace-with-your-token"
+          encryption="chacha20-poly1305" mtu_payload="1200" deadline_ms="8"
+          batch_window_us="0" pacing_interval_us="0" queue_limit="512"
+          fec_uplink="0" fec_group_max_us="2000" />
+    <rules>
+        <rule name="game.exe" tcp="1" udp="1" />
+    </rules>
+</config>

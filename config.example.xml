@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config>
+    <backend type="netfilter" />
+    <udp_transport type="socks5" />
+    <socks5 host="127.0.0.1" port="10808" user="" pass="" />
+    <rules>
+        <!-- Replace the example process names with your own rules. -->
+        <rule names="game.exe,launcher.exe" tcp="1" udp="1" />
+    </rules>
+</config>

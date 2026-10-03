@@ -1,0 +1,25 @@
+{
+  "version": "2.2.2",
+  "architecture": "x64",
+  "origin": "official-github-release-https",
+  "release": "https://github.com/basil00/WinDivert/releases/tag/v2.2.2",
+  "download": "https://github.com/basil00/WinDivert/releases/download/v2.2.2/WinDivert-2.2.2-A.zip",
+  "archive_sha256": "63cb41763bb4b20f600b6de04e991a9c2be73279e317d4d82f237b150c5f3f15",
+  "checksum_verification": "no-independent-checksum-published; HTTPS source and driver Authenticode verified",
+  "driver_signature": {
+    "timestamp_subject": "CN=\"Sectigo RSA Time Stamping Signer #3\", O=Sectigo Limited, S=Manchester, C=GB",
+    "thumbprint": "043589F75FCE2795E7F2CC3E526D46784D5DDAB3",
+    "status": "Valid",
+    "subject": "CN=成都密思听科技有限公司, O=成都密思听科技有限公司, S=四川省, C=CN, OID.2.5.4.15=Private Organization, OID.1.3.6.1.4.1.311.60.2.1.3=CN, SERIALNUMBER=91510107MA7E8Y2876"
+  },
+  "files": [
+    {
+      "name": "WinDivert.dll",
+      "sha256": "c1e060ee19444a259b2162f8af0f3fe8c4428a1c6f694dce20de194ac8d7d9a2"
+    },
+    {
+      "name": "WinDivert64.sys",
+      "sha256": "8da085332782708d8767bcace5327a6ec7283c17cfb85e40b03cd2323a90ddc2"
+    }
+  ]
+}
