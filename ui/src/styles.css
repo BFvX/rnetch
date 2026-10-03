@@ -438,7 +438,13 @@ select:focus {
 }
 
 .log-panel {
+  display: flex;
+  flex-direction: column;
   min-height: 218px;
+}
+
+.log-panel .panel-heading {
+  flex-shrink: 0;
 }
 
 .backend-field {
@@ -482,8 +488,11 @@ input:disabled {
 .log-list {
   display: flex;
   flex-direction: column;
+  flex: 1;
   gap: 5px;
-  height: 164px;
+  min-height: 164px;
+  /* Keep log contents from determining the shared grid row's height. */
+  contain: size;
   overflow: auto;
   border-radius: 7px;
   padding: 10px;
